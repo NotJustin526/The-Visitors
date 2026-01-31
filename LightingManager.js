@@ -46,26 +46,41 @@ export class LightingManager {
         this.toggleBedroom(false);
     }
 
-    toggleBedroom(isOn) {
+    /**
+     * Toggle bedroom lights on/off with optional flickering effect
+     * @param {boolean} isOn - Light state (true = on, false = off)
+     * @param {boolean} flicker - Optional flickering effect during transition
+     */
+    toggleBedroom(isOn, flicker = false) {
+        if (flicker) {
+            // Create flickering effect before final state
+            this.flickerLights(isOn);
+        } else {
+            this.applyLightState(isOn);
+        }
+    }
+
+    /**
+     * Apply lighting state without effects
+     * @param {boolean} isOn - Target light state
+     */
+    applyLightState(isOn) {
         if (isOn) {
             // === LIGHTS ON ===
             
             // 1. WARM ATMOSPHERE (Hemisphere Light)
-            // UPDATED: Increased from 0.6 to 1.2 for brighter ambient light
             this.hemiLight.intensity = 1.2; 
             this.hemiLight.color.setHex(0xffd1a6); // Warm Orange-ish White
             this.hemiLight.groundColor.setHex(0x332211); // Dark Warm Shadows
 
             // 2. MAIN BULB CAST
-            // Intensity 1.0, Warm Orange Color
             this.bedroomLight.intensity = 1.0; 
             this.bedroomLight.color.setHex(0xffaa00);
 
             // 3. THE FIXTURE (Visual Mesh)
             if(this.refs.bulb) {
-                // Set emission to match the light color exactly
                 this.refs.bulb.material.emissive.setHex(0xffaa00); 
-                this.refs.bulb.material.emissiveIntensity = 20.0; // Blindingly bright core
+                this.refs.bulb.material.emissiveIntensity = 20.0;
             }
             
             this.laptopLight.intensity = 0.5;
@@ -89,5 +104,59 @@ export class LightingManager {
 
             this.switchGlow.material.opacity = 0.03; 
         }
+    }
+
+    /**
+     * Create a flickering effect when changing light states
+     * Simulates electrical instability for horror atmosphere
+     * @param {boolean} finalState - Target state after flickering
+     * @param {number[]} sequence - Custom flicker pattern (optional)
+     * @param {number} delay - Delay between flickers in ms (optional)
+     */
+    flickerLights(finalState, sequence = null, delay = 100) {
+        const flickerSequence = sequence || [false, true, false, true, false, finalState];
+        const flickerDelay = delay;
+        
+        flickerSequence.forEach((state, index) => {
+            setTimeout(() => {
+                this.applyLightState(state);
+            }, flickerDelay * index);
+        });
+    }
+
+    /**
+     * Gradually dim or brighten lights over time
+     * Creates tension by slowly changing lighting
+     * @param {number} targetIntensity - Target intensity (0.0 to 1.0)
+     * @param {number} duration - Duration in milliseconds
+     */
+    fadeLights(targetIntensity, duration = 1000) {
+        const startIntensity = this.bedroomLight.intensity;
+        const startTime = Date.now();
+        
+        const fadeInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+            
+            this.bedroomLight.intensity = startIntensity + (targetIntensity - startIntensity) * progress;
+            
+            if (progress >= 1.0) {
+                clearInterval(fadeInterval);
+            }
+        }, 16); // ~60fps
+    }
+
+    /**
+     * Create a brief flash effect (e.g., lightning, jumpscare)
+     * @param {number} intensity - Flash brightness (default: 10.0)
+     * @param {number} duration - Flash duration in ms (default: 100)
+     */
+    flash(intensity = 10.0, duration = 100) {
+        const originalIntensity = this.hemiLight.intensity;
+        this.hemiLight.intensity = intensity;
+        
+        setTimeout(() => {
+            this.hemiLight.intensity = originalIntensity;
+        }, duration);
     }
 }
