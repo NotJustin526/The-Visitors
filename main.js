@@ -318,7 +318,6 @@ function loadGame() {
 }
     if (refs.windowGroup) soundMgr.playPositional('rain', refs.windowGroup, true, 0.1, 10.0);
     if (refs.audioProxy) soundMgr.playPositional('night_ambience', refs.audioProxy, true, 0.3, 40.0);
-}
 
 function updateCutscene(delta) {
     cutsceneTime += delta;
@@ -641,7 +640,6 @@ function checkCollisions(pos) {
     if (inBedroom || inHallway || inLiving || inBathroom) return false;
     
     return true; // Outside valid areas = collision
-}
 }
 
 function gameLoop(time) {
