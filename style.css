@@ -1,0 +1,288 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #050505;
+    font-family: 'Special Elite', courier, monospace;
+    color: #dcdcdc;
+    user-select: none;
+}
+
+/* --- OVERLAYS --- */
+#scanlines {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+    background-size: 100% 4px; pointer-events: none; z-index: 50; opacity: 0.3;
+}
+#vignette {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle, transparent 40%, black 150%);
+    pointer-events: none; z-index: 49;
+}
+#noise {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 48; opacity: 0.05;
+    background-image: url('assets/textures/noise.png'); 
+}
+
+/* --- HUD --- */
+#ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
+
+#crosshair {
+    position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
+    background: rgba(255, 255, 255, 0.5); border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#interaction-prompt {
+    position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 1.2rem; color: #fff; text-shadow: 0 0 5px #000; opacity: 0; transition: opacity 0.2s;
+}
+
+/* --- MENUS & SCREENS --- */
+#start-screen, #settings-screen, #game-over-screen, #win-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: #050505; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; pointer-events: auto; z-index: 100;
+}
+
+#game-over-screen { display: none; background: #200000; }
+#win-screen { display: none; background: #000; }
+#settings-screen { display: none; background: rgba(0,0,0,0.95); z-index: 101; }
+
+/* --- SETTINGS LAYOUT --- */
+.settings-content {
+    display: flex;
+    gap: 80px; /* Space between Audio and Video columns */
+    margin-bottom: 30px;
+}
+
+.settings-category {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.settings-category h3 {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    color: #fff;
+    border-bottom: 2px solid #555;
+    padding-bottom: 5px;
+    width: 100%;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+.slider-container { margin-bottom: 15px; width: 250px; display: flex; justify-content: space-between; align-items: center; }
+input[type=range] { width: 120px; cursor: pointer; accent-color: #888; }
+label { font-size: 1.1rem; color: #aaa; }
+
+/* --- MENU SLIDESHOW (DYNAMIC) --- */
+#menu-slideshow {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1; overflow: hidden;
+    background-color: #000;
+}
+
+/* Base Slide Style */
+.slide-image {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transform: scale(1.1); 
+    transition: opacity 2.0s ease-in-out;
+    will-change: transform, opacity;
+}
+
+.slide-image.active { opacity: 0.6; }
+
+/* --- ANIMATION VARIANTS --- */
+.fx-pan-right.active { animation: panRight 10s linear forwards; }
+@keyframes panRight { from { transform: scale(1.1) translate(-2%, 0); } to { transform: scale(1.1) translate(2%, 0); } }
+
+.fx-pan-left.active { animation: panLeft 10s linear forwards; }
+@keyframes panLeft { from { transform: scale(1.1) translate(2%, 0); } to { transform: scale(1.1) translate(-2%, 0); } }
+
+.fx-pan-up.active { animation: panUp 10s linear forwards; }
+@keyframes panUp { from { transform: scale(1.1) translate(0, 2%); } to { transform: scale(1.1) translate(0, -2%); } }
+
+.fx-pan-down.active { animation: panDown 10s linear forwards; }
+@keyframes panDown { from { transform: scale(1.1) translate(0, -2%); } to { transform: scale(1.1) translate(0, 2%); } }
+
+.fx-zoom-in.active { animation: zoomIn 10s linear forwards; }
+@keyframes zoomIn { from { transform: scale(1.0); } to { transform: scale(1.2); } }
+
+.fx-zoom-out.active { animation: zoomOut 10s linear forwards; }
+@keyframes zoomOut { from { transform: scale(1.2); } to { transform: scale(1.0); } }
+
+.slideshow-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.8) 100%); 
+    z-index: 1;
+}
+
+/* --- MENU CONTENT & GLITCH/GRAIN TITLE --- */
+.menu-content { text-align: center; z-index: 2; position: relative; }
+
+.game-title {
+    position: relative;
+    font-size: 5rem;
+    letter-spacing: 5px;
+    margin-bottom: 40px;
+    
+    /* --- TEXT GRAIN EFFECT --- */
+    color: transparent; /* Hide default white fill */
+    
+    /* Layer the noise texture ON TOP of a white gradient */
+    background-image: url('assets/textures/noise.png'), linear-gradient(to bottom, #dcdcdc, #ffffff);
+    background-blend-mode: multiply; /* Blends the noise into the white text */
+    
+    -webkit-background-clip: text;
+    background-clip: text;
+    
+    background-size: 128px 128px; /* Tiling size for the noise */
+    
+    /* Use drop-shadow filter instead of text-shadow because color is transparent */
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
+    
+    /* Animate background position to create "film grain" motion */
+    animation: text-grain 0.2s steps(4) infinite;
+}
+
+@keyframes text-grain {
+    0% { background-position: 0 0; }
+    25% { background-position: 20px -20px; }
+    50% { background-position: -20px 20px; }
+    75% { background-position: 20px 20px; }
+    100% { background-position: 0 0; }
+}
+
+/* Glitch Layer 1 (Red/Magenta Shift) */
+.game-title::before {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 2px;
+    width: 100%;
+    height: 100%;
+    
+    /* Explicitly set color because parent is transparent */
+    color: #fff;
+    background: rgba(5, 5, 5, 0.0);
+    text-shadow: -2px 0 #ff00c1;
+    
+    clip: rect(44px, 450px, 56px, 0);
+    animation: glitch-anim-1 4s infinite linear alternate-reverse;
+    z-index: -1;
+}
+
+/* Glitch Layer 2 (Cyan/Blue Shift) */
+.game-title::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: -2px;
+    width: 100%;
+    height: 100%;
+    
+    /* Explicitly set color because parent is transparent */
+    color: #fff;
+    background: rgba(5, 5, 5, 0.0);
+    text-shadow: -2px 0 #00fff9;
+    
+    clip: rect(44px, 450px, 56px, 0);
+    animation: glitch-anim-2 4s infinite linear alternate-reverse;
+    z-index: -2;
+}
+
+/* Keyframes for random slicing of text */
+@keyframes glitch-anim-1 {
+    0% { clip: rect(20px, 9999px, 80px, 0); transform: skew(0.5deg); }
+    5% { clip: rect(94px, 9999px, 98px, 0); transform: skew(0.5deg); }
+    10% { clip: rect(10px, 9999px, 49px, 0); transform: skew(-0.5deg); }
+    15% { clip: rect(32px, 9999px, 60px, 0); transform: skew(0.1deg); }
+    20% { clip: rect(65px, 9999px, 80px, 0); transform: skew(0.2deg); }
+    25% { clip: rect(12px, 9999px, 48px, 0); transform: skew(0.8deg); }
+    30% { clip: rect(92px, 9999px, 95px, 0); transform: skew(0.1deg); }
+    35% { clip: rect(55px, 9999px, 58px, 0); transform: skew(0.3deg); }
+    40% { clip: rect(70px, 9999px, 90px, 0); transform: skew(0.1deg); }
+    45% { clip: rect(5px, 9999px, 30px, 0); transform: skew(0.6deg); }
+    50% { clip: rect(45px, 9999px, 50px, 0); transform: skew(0.2deg); }
+    55% { clip: rect(88px, 9999px, 99px, 0); transform: skew(0.3deg); }
+    60% { clip: rect(10px, 9999px, 20px, 0); transform: skew(0.1deg); }
+    65% { clip: rect(55px, 9999px, 85px, 0); transform: skew(0.5deg); }
+    70% { clip: rect(2px, 9999px, 15px, 0); transform: skew(0.9deg); }
+    75% { clip: rect(40px, 9999px, 60px, 0); transform: skew(0.2deg); }
+    80% { clip: rect(80px, 9999px, 85px, 0); transform: skew(0.1deg); }
+    85% { clip: rect(20px, 9999px, 30px, 0); transform: skew(0.4deg); }
+    90% { clip: rect(65px, 9999px, 70px, 0); transform: skew(0.6deg); }
+    95% { clip: rect(10px, 9999px, 50px, 0); transform: skew(0.2deg); }
+    100% { clip: rect(44px, 9999px, 56px, 0); transform: skew(0.5deg); }
+}
+
+@keyframes glitch-anim-2 {
+    0% { clip: rect(65px, 9999px, 100px, 0); transform: skew(0.8deg); }
+    5% { clip: rect(2px, 9999px, 15px, 0); transform: skew(0.8deg); }
+    10% { clip: rect(40px, 9999px, 42px, 0); transform: skew(0.1deg); }
+    15% { clip: rect(12px, 9999px, 25px, 0); transform: skew(0.4deg); }
+    20% { clip: rect(70px, 9999px, 95px, 0); transform: skew(0.2deg); }
+    25% { clip: rect(35px, 9999px, 45px, 0); transform: skew(0.5deg); }
+    30% { clip: rect(80px, 9999px, 90px, 0); transform: skew(0.1deg); }
+    35% { clip: rect(10px, 9999px, 40px, 0); transform: skew(0.3deg); }
+    40% { clip: rect(55px, 9999px, 60px, 0); transform: skew(0.7deg); }
+    45% { clip: rect(22px, 9999px, 30px, 0); transform: skew(0.2deg); }
+    50% { clip: rect(95px, 9999px, 100px, 0); transform: skew(0.6deg); }
+    55% { clip: rect(5px, 9999px, 15px, 0); transform: skew(0.3deg); }
+    60% { clip: rect(60px, 9999px, 75px, 0); transform: skew(0.1deg); }
+    65% { clip: rect(30px, 9999px, 50px, 0); transform: skew(0.4deg); }
+    70% { clip: rect(85px, 9999px, 95px, 0); transform: skew(0.9deg); }
+    75% { clip: rect(15px, 9999px, 35px, 0); transform: skew(0.2deg); }
+    80% { clip: rect(50px, 9999px, 55px, 0); transform: skew(0.5deg); }
+    85% { clip: rect(40px, 9999px, 45px, 0); transform: skew(0.1deg); }
+    90% { clip: rect(70px, 9999px, 85px, 0); transform: skew(0.6deg); }
+    95% { clip: rect(25px, 9999px, 30px, 0); transform: skew(0.3deg); }
+    100% { clip: rect(10px, 9999px, 50px, 0); transform: skew(0.8deg); }
+}
+
+.menu-buttons { display: flex; flex-direction: column; gap: 15px; width: 300px; margin: 0 auto; }
+
+button {
+    padding: 15px 0; font-family: 'Special Elite', monospace; font-size: 1.5rem;
+    color: #bbb; background: rgba(0,0,0,0.5); border: 1px solid #555; cursor: pointer;
+    transition: all 0.2s; text-align: center; width: 100%; backdrop-filter: blur(2px);
+}
+button:hover:not(:disabled) { background: #111; border-color: #fff; color: #fff; letter-spacing: 2px; }
+button:disabled { color: #444; border-color: #222; cursor: wait; background: rgba(0,0,0,0.8); }
+
+.version { position: absolute; bottom: 20px; right: 20px; color: #888; font-size: 0.8rem; text-shadow: 0 0 2px #000; }
+
+/* --- SETTINGS SLIDERS --- */
+.slider-container { margin-bottom: 20px; width: 400px; display: flex; justify-content: space-between; align-items: center; }
+input[type=range] { width: 200px; cursor: pointer; accent-color: #888; }
+label { font-size: 1.2rem; }
+
+/* --- LAPTOP INTERFACE --- */
+#laptop-interface {
+    display: none; 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    z-index: 200; 
+    pointer-events: auto; 
+    cursor: url('assets/textures/hand_cursor.png'), pointer; 
+}
+
+.screen-content { position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; }
+
+#save-icon {
+    position: absolute; top: 50px; left: 50px; display: flex; flex-direction: column; align-items: center;
+    cursor: inherit; opacity: 0.9; transition: transform 0.1s, opacity 0.1s;
+}
+#save-icon:hover { opacity: 1.0; transform: scale(1.1); background-color: rgba(255, 255, 255, 0.1); border-radius: 8px; }
+#save-icon img { display: block; width: 64px; height: 64px; margin-bottom: 5px; }
+#save-icon span { font-family: 'Orbitron', sans-serif; font-size: 14px; color: white; text-shadow: 0 0 5px black; background-color: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 4px; }
+
+.exit-hint { position: absolute; bottom: 50px; width: 100%; text-align: center; font-size: 1.5rem; color: rgba(255,255,255,0.8); pointer-events: none; text-shadow: 0 2px 4px black; }
+#save-feedback { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; color: #4caf50; font-weight: bold; opacity: 0; transition: opacity 0.5s; pointer-events: none; text-shadow: 0 0 10px black; }
