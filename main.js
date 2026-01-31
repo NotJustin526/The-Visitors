@@ -503,6 +503,22 @@ const interactionHandlers = {
         refs.bathPivot.rotation.y = STATE.isBathroomDoorOpen ? Math.PI / 2 : 0;
         soundMgr.playPositional(STATE.isBathroomDoorOpen ? 'door_open' : 'door_close', refs.bathPivot, false, 2.0, 1.0);
     },
+    'CLOSET_DOOR': () => {
+        // Toggle closet door open/closed state
+        STATE.closetDoorOpen = !STATE.closetDoorOpen;
+        if (refs.closetDoor) {
+            refs.closetDoor.rotation.y = STATE.closetDoorOpen ? -Math.PI / 3 : 0;
+        }
+        soundMgr.playPositional(STATE.closetDoorOpen ? 'door_creak' : 'door_close', refs.closetDoor, false, 1.5, 1.0);
+    },
+    'PICTURE': () => {
+        // Picture interaction - play subtle sound and slight flicker
+        soundMgr.playWithPitchVariation('creak_floor', 0.3);
+        if (Math.random() < 0.3 && !STATE.lightsOn) {
+            // Rare chance of something spooky in the dark
+            soundMgr.playGlobal('whisper', false, 0.2);
+        }
+    },
     'PHONE': () => {
         if (STATE.phoneRinging) {
             STATE.phoneRinging = false;
@@ -530,6 +546,9 @@ function interact() {
     if (refs.bathCollider) interactables.push(refs.bathCollider);
     if (refs.phoneCollider) interactables.push(refs.phoneCollider);
     if (refs.laptopCollider) interactables.push(refs.laptopCollider);
+    if (refs.closetDoorCollider) interactables.push(refs.closetDoorCollider);
+    if (refs.picture1Collider) interactables.push(refs.picture1Collider);
+    if (refs.picture2Collider) interactables.push(refs.picture2Collider);
     
     // Check for intersections with interactive objects
     const intersects = raycaster.intersectObjects(interactables, true);
@@ -548,7 +567,9 @@ const interactionPrompts = {
     'SWITCH': () => `[E] ${STATE.lightsOn ? 'Turn Off' : 'Turn On'} Lights`,
     'DOOR': () => `[E] ${STATE.isMainDoorOpen ? 'Close' : 'Open'} Door`,
     'BATHROOM_DOOR': () => `[E] ${STATE.isBathroomDoorOpen ? 'Close' : 'Open'} Bathroom`,
+    'CLOSET_DOOR': () => `[E] ${STATE.closetDoorOpen ? 'Close' : 'Open'} Closet`,
     'LAPTOP': () => '[E] Use Computer',
+    'PICTURE': () => '[E] Examine Picture',
     'PHONE': () => STATE.phoneRinging ? '[E] Answer Phone' : ''
 };
 
@@ -573,6 +594,9 @@ function updateUI() {
     if (refs.doorCollider) interactables.push(refs.doorCollider);
     if (refs.bathCollider) interactables.push(refs.bathCollider);
     if (refs.phoneCollider) interactables.push(refs.phoneCollider);
+    if (refs.closetDoorCollider) interactables.push(refs.closetDoorCollider);
+    if (refs.picture1Collider) interactables.push(refs.picture1Collider);
+    if (refs.picture2Collider) interactables.push(refs.picture2Collider);
 
     const intersects = raycaster.intersectObjects(interactables, true);
     if (intersects.length > 0 && intersects[0].distance < 3.5) {

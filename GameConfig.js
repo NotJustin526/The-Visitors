@@ -35,6 +35,7 @@ export const STATE = {
     lightsOn: false,                 // Bedroom lights state
     isMainDoorOpen: false,           // Main door open/closed
     isBathroomDoorOpen: false,       // Bathroom door open/closed
+    closetDoorOpen: false,           // Closet door open/closed
     phoneRinging: false,             // Phone ring state
     phoneAnswered: false,            // Phone answered state
     isLaptopOpen: false              // Laptop interface active

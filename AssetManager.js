@@ -196,6 +196,32 @@ export class AssetManager {
             const winPath = new THREE.Path(); winPath.moveTo(-1.5, 2); winPath.lineTo(1.5, 2); winPath.lineTo(1.5, 6); winPath.lineTo(-1.5, 6); winPath.lineTo(-1.5, 2); rightWallShape.holes.push(winPath);
             const rightWall = new THREE.Mesh(new THREE.ShapeGeometry(rightWallShape), mats.wallsMat); rightWall.rotation.y = -Math.PI/2; rightWall.position.set(7.5, 0, 0); rightWall.receiveShadow = true; scene.add(rightWall);
             
+            // Add decorative picture frames on bedroom walls
+            const pictureFrameMat = new THREE.MeshStandardMaterial({ color: 0x2a1f1a, metalness: 0.3, roughness: 0.6 });
+            
+            // Picture frame 1 - Left wall
+            const frame1 = new THREE.Group();
+            spawn(new THREE.BoxGeometry(1.2, 1.6, 0.05), pictureFrameMat, frame1);
+            spawn(new THREE.PlaneGeometry(1.0, 1.4), new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), frame1, [0, 0, 0.026]);
+            frame1.position.set(-7.49, 4.5, 3);
+            frame1.rotation.y = Math.PI / 2;
+            scene.add(frame1);
+            
+            // Add invisible collider for interaction
+            this.refs.picture1Collider = spawn(new THREE.BoxGeometry(1.2, 1.6, 0.3), new THREE.MeshBasicMaterial({ visible: false }), frame1);
+            this.refs.picture1Collider.userData = { type: 'PICTURE' };
+            
+            // Picture frame 2 - Back wall
+            const frame2 = new THREE.Group();
+            spawn(new THREE.BoxGeometry(1.4, 1.0, 0.05), pictureFrameMat, frame2);
+            spawn(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), frame2, [0, 0, 0.026]);
+            frame2.position.set(3, 5, 7.49);
+            scene.add(frame2);
+            
+            // Add invisible collider for interaction
+            this.refs.picture2Collider = spawn(new THREE.BoxGeometry(1.4, 1.0, 0.3), new THREE.MeshBasicMaterial({ visible: false }), frame2);
+            this.refs.picture2Collider.userData = { type: 'PICTURE' };
+            
             spawn(new THREE.BoxGeometry(15, 0.4, 15), mats.trimMat, scene, [0, 0.2, 0]);
             this.refs.audioProxy = spawn(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshBasicMaterial({ visible: false }), scene, [20, 0, 0]);
 
@@ -315,7 +341,11 @@ export class AssetManager {
             this.refs.closetCollider.userData = { type: 'CLOSET' };
             this.refs.closetPivot = groups.closetPivot; 
             this.refs.closetGroup = groups.closet;
-            this.refs.closetDoor = groups.closetDoor; 
+            this.refs.closetDoor = groups.closetDoor;
+            
+            // Add interactive closet door collider
+            this.refs.closetDoorCollider = spawn(new THREE.BoxGeometry(0.3, 5, 4), new THREE.MeshBasicMaterial({ visible: false }), groups.closetDoor, [0, 3, 2.0]);
+            this.refs.closetDoorCollider.userData = { type: 'CLOSET_DOOR' };
 
             // --- BEDROOM DOOR REPLACEMENT ---
             
