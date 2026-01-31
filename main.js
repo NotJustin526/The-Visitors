@@ -4,7 +4,7 @@ import { AssetManager } from './AssetManager.js';
 import { SoundManager } from './SoundManager.js';
 import { LightingManager } from './LightingManager.js';
 import { EntityManager } from './EntityManager.js';
-import { STATE, BOUNDS, CONSTANTS } from './GameConfig.js';
+import { STATE, BOUNDS, CONSTANTS, ATMOSPHERE_CONFIG } from './GameConfig.js';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000); 
@@ -779,7 +779,9 @@ function updateDynamicAtmosphere(delta, currentPos) {
         movementSoundTimer += delta;
         
         // Occasional floor creaks when walking in dark
-        if (!STATE.lightsOn && movementSoundTimer > 3.0 && Math.random() < 0.3) {
+        if (!STATE.lightsOn && 
+            movementSoundTimer > ATMOSPHERE_CONFIG.MOVEMENT_SOUND_INTERVAL && 
+            Math.random() < ATMOSPHERE_CONFIG.MOVEMENT_SOUND_PROBABILITY) {
             soundMgr.playWithPitchVariation('creak_floor', 0.2);
             movementSoundTimer = 0;
         }
@@ -787,7 +789,9 @@ function updateDynamicAtmosphere(delta, currentPos) {
         stationaryTime += delta;
         
         // Heartbeat sound if player stands still in dark for too long
-        if (!STATE.lightsOn && stationaryTime > 15.0 && !soundMgr.activeSounds['heartbeat']) {
+        if (!STATE.lightsOn && 
+            stationaryTime > ATMOSPHERE_CONFIG.HEARTBEAT_TRIGGER_TIME && 
+            !soundMgr.activeSounds['heartbeat']) {
             soundMgr.playGlobal('heartbeat', true, 0.3);
         } else if (STATE.lightsOn && soundMgr.activeSounds['heartbeat']) {
             soundMgr.stop('heartbeat');
@@ -795,13 +799,15 @@ function updateDynamicAtmosphere(delta, currentPos) {
     }
     
     // Random atmospheric events
-    if (atmosphereTimer > 20.0 && STATE.phoneAnswered && Math.random() < 0.05) {
+    if (atmosphereTimer > ATMOSPHERE_CONFIG.RANDOM_EVENT_INTERVAL && 
+        STATE.phoneAnswered && 
+        Math.random() < ATMOSPHERE_CONFIG.RANDOM_EVENT_PROBABILITY) {
         const eventRoll = Math.random();
         
-        if (eventRoll < 0.3 && !STATE.lightsOn) {
+        if (eventRoll < ATMOSPHERE_CONFIG.STATIC_SOUND_PROBABILITY && !STATE.lightsOn) {
             // Brief static sound
             soundMgr.playGlobal('static', false, 0.2);
-        } else if (eventRoll < 0.5) {
+        } else if (eventRoll < ATMOSPHERE_CONFIG.FLICKER_PROBABILITY) {
             // Light flicker when lights are on
             if (STATE.lightsOn && lightMgr) {
                 lightMgr.flickerLights(true);

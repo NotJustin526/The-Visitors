@@ -110,10 +110,12 @@ export class LightingManager {
      * Create a flickering effect when changing light states
      * Simulates electrical instability for horror atmosphere
      * @param {boolean} finalState - Target state after flickering
+     * @param {number[]} sequence - Custom flicker pattern (optional)
+     * @param {number} delay - Delay between flickers in ms (optional)
      */
-    flickerLights(finalState) {
-        const flickerSequence = [false, true, false, true, false, finalState];
-        const flickerDelay = 100; // milliseconds between flickers
+    flickerLights(finalState, sequence = null, delay = 100) {
+        const flickerSequence = sequence || [false, true, false, true, false, finalState];
+        const flickerDelay = delay;
         
         flickerSequence.forEach((state, index) => {
             setTimeout(() => {

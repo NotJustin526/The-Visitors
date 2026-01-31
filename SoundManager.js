@@ -89,7 +89,7 @@ export class SoundManager {
                 }
             }, undefined, (error) => {
                 // Silently fail for missing audio files - allows game to run without all assets
-                console.warn(`Failed to load sound: ${key} (${path})`);
+                console.warn(`Failed to load sound: ${key} (${path}). Ensure the file exists and the path is correct.`);
             });
         }
     }

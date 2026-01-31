@@ -25,6 +25,22 @@ export const CONSTANTS = {
     STAND_UP_DURATION: 2.0
 };
 
+// Atmospheric effects configuration
+export const ATMOSPHERE_CONFIG = {
+    // Movement sound timing
+    MOVEMENT_SOUND_INTERVAL: 3.0,        // Seconds between movement sounds
+    MOVEMENT_SOUND_PROBABILITY: 0.3,     // Chance of floor creak when walking
+    
+    // Stationary effects
+    HEARTBEAT_TRIGGER_TIME: 15.0,        // Seconds standing still before heartbeat starts
+    
+    // Random events
+    RANDOM_EVENT_INTERVAL: 20.0,         // Seconds between random atmospheric events
+    RANDOM_EVENT_PROBABILITY: 0.05,      // Chance of random event per interval
+    STATIC_SOUND_PROBABILITY: 0.3,       // Chance of static sound in random events
+    FLICKER_PROBABILITY: 0.5             // Chance of light flicker in random events
+};
+
 /**
  * Global game state - All variables initialized with safe defaults
  * Tracks game phase, door states, phone status, and laptop state
