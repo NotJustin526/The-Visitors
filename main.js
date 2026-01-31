@@ -689,8 +689,8 @@ function gameLoop(time) {
             if (sequenceTimer >= 10.0) {
                 tutorialState = 'DONE';
                 if (entityMgr) {
-                    entityMgr.status = 'COOLDOWN'; 
-                    entityMgr.timers.cooldownTimer = 0; 
+                    entityMgr.status = 'GRACE'; 
+                    entityMgr.timers.graceTimer = 0; 
                 }
             }
         }

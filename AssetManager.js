@@ -103,6 +103,7 @@ export class AssetManager {
                 const canvasMat = new THREE.MeshStandardMaterial({ map: pTex, roughness: 0.8 });
                 spawn(new THREE.PlaneGeometry(size[0]-0.2, size[1]-0.2), canvasMat, grp, [0, 0, size[2]/2 + 0.01]);
                 parent.add(grp);
+                return grp;
             };
 
             const floorMat = this.loadMaterialSet('floor', 4); 
@@ -198,29 +199,6 @@ export class AssetManager {
             
             // Add decorative picture frames on bedroom walls
             const pictureFrameMat = new THREE.MeshStandardMaterial({ color: 0x2a1f1a, metalness: 0.3, roughness: 0.6 });
-            
-            // Picture frame 1 - Left wall
-            const frame1 = new THREE.Group();
-            spawn(new THREE.BoxGeometry(1.2, 1.6, 0.05), pictureFrameMat, frame1);
-            spawn(new THREE.PlaneGeometry(1.0, 1.4), new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), frame1, [0, 0, 0.026]);
-            frame1.position.set(-7.49, 4.5, 3);
-            frame1.rotation.y = Math.PI / 2;
-            scene.add(frame1);
-            
-            // Add invisible collider for interaction
-            this.refs.picture1Collider = spawn(new THREE.BoxGeometry(1.2, 1.6, 0.3), new THREE.MeshBasicMaterial({ visible: false }), frame1);
-            this.refs.picture1Collider.userData = { type: 'PICTURE' };
-            
-            // Picture frame 2 - Back wall
-            const frame2 = new THREE.Group();
-            spawn(new THREE.BoxGeometry(1.4, 1.0, 0.05), pictureFrameMat, frame2);
-            spawn(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), frame2, [0, 0, 0.026]);
-            frame2.position.set(3, 5, 7.49);
-            scene.add(frame2);
-            
-            // Add invisible collider for interaction
-            this.refs.picture2Collider = spawn(new THREE.BoxGeometry(1.4, 1.0, 0.3), new THREE.MeshBasicMaterial({ visible: false }), frame2);
-            this.refs.picture2Collider.userData = { type: 'PICTURE' };
             
             spawn(new THREE.BoxGeometry(15, 0.4, 15), mats.trimMat, scene, [0, 0.2, 0]);
             this.refs.audioProxy = spawn(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshBasicMaterial({ visible: false }), scene, [20, 0, 0]);
@@ -470,8 +448,14 @@ export class AssetManager {
             spawn(new THREE.PlaneGeometry(0.5, 0.2), new THREE.MeshBasicMaterial({ map: clockTexture }), groups.clock, [0, 0, 0.101]);
             this.refs.clockTexture = clockTexture; this.refs.clockCtx = clockCtx;
 
-            createPainting('painting1.png', scene, [-6.5, 3.5, 7.35], [0, Math.PI, 0]);
-            createPainting('painting2.png', groups.hallway, [1.35, 3.0, -10], [0, -Math.PI/2, 0]);
+            const painting1 = createPainting('painting1.png', scene, [-6.5, 3.5, 7.35], [0, Math.PI, 0]);
+            this.refs.picture1Collider = spawn(new THREE.BoxGeometry(1.5, 2.0, 0.3), new THREE.MeshBasicMaterial({ visible: false }), painting1);
+            this.refs.picture1Collider.userData = { type: 'PICTURE' };
+            
+            const painting2 = createPainting('painting2.png', groups.hallway, [1.35, 3.0, -10], [0, -Math.PI/2, 0]);
+            this.refs.picture2Collider = spawn(new THREE.BoxGeometry(1.5, 2.0, 0.3), new THREE.MeshBasicMaterial({ visible: false }), painting2);
+            this.refs.picture2Collider.userData = { type: 'PICTURE' };
+            
             createPainting('painting3.png', groups.living, [-9.85, 3.5, 5], [0, Math.PI/2, 0]);
 
             this.createCollider(-4.5, 5.5, 8.0, 5.5); 
