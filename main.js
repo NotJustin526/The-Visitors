@@ -221,48 +221,95 @@ try {
 
 } catch (e) { console.error(e); }
 
+/**
+ * Save game state to localStorage
+ * Handles all critical game state including entity pool and player position
+ */
 function saveGame() {
-    const data = {
-        lightsOn: STATE.lightsOn,
-        phoneAnswered: STATE.phoneAnswered,
-        isMainDoorOpen: STATE.isMainDoorOpen,
-        pool: entityMgr.entityPool,
-        playerPos: savedStandPos,
-        tutorialState: tutorialState 
-    };
-    localStorage.setItem('visitorSaveData', JSON.stringify(data));
-    console.log("GAME SAVED", data);
+    try {
+        const data = {
+            version: '1.0', // Save version for future compatibility
+            lightsOn: STATE.lightsOn,
+            phoneAnswered: STATE.phoneAnswered,
+            isMainDoorOpen: STATE.isMainDoorOpen,
+            isBathroomDoorOpen: STATE.isBathroomDoorOpen,
+            pool: entityMgr.entityPool,
+            playerPos: savedStandPos,
+            tutorialState: tutorialState,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('visitorSaveData', JSON.stringify(data));
+        console.log("✅ GAME SAVED", data);
+        return true;
+    } catch (error) {
+        console.error("❌ Save failed:", error);
+        return false;
+    }
 }
 
+/**
+ * Load game state from localStorage with error handling for corrupted data
+ * Falls back to safe defaults if save data is corrupted or missing
+ */
 function loadGame() {
-    const json = localStorage.getItem('visitorSaveData');
-    if (!json) return;
-    const data = JSON.parse(json);
+    try {
+        const json = localStorage.getItem('visitorSaveData');
+        if (!json) {
+            console.warn("No save data found");
+            return false;
+        }
+        
+        const data = JSON.parse(json);
+        
+        // Validate critical fields exist
+        if (data.pool === undefined || data.phoneAnswered === undefined) {
+            throw new Error("Save data missing critical fields");
+        }
 
-    STATE.lightsOn = data.lightsOn;
-    STATE.phoneAnswered = data.phoneAnswered;
-    STATE.isMainDoorOpen = data.isMainDoorOpen;
-    entityMgr.entityPool = data.pool;
-    
-    tutorialState = data.tutorialState || 'DONE';
+        // Restore game state with fallback defaults
+        STATE.lightsOn = data.lightsOn ?? false;
+        STATE.phoneAnswered = data.phoneAnswered ?? false;
+        STATE.isMainDoorOpen = data.isMainDoorOpen ?? false;
+        STATE.isBathroomDoorOpen = data.isBathroomDoorOpen ?? false;
+        entityMgr.entityPool = Array.isArray(data.pool) ? data.pool : ['CLOSET', 'WINDOW', 'WHISPER'];
+        
+        tutorialState = data.tutorialState || 'DONE';
 
-    if (data.playerPos) savedStandPos.copy(data.playerPos);
-    else savedStandPos.copy(CONSTANTS.DESK_ALARM_POS);
-    savedStandQuat.setFromEuler(new THREE.Euler(0, -Math.PI/2, 0));
+        // Restore player position
+        if (data.playerPos && data.playerPos.x !== undefined) {
+            savedStandPos.copy(data.playerPos);
+        } else {
+            savedStandPos.copy(CONSTANTS.DESK_ALARM_POS);
+        }
+        savedStandQuat.setFromEuler(new THREE.Euler(0, -Math.PI/2, 0));
 
-    lightMgr.toggleBedroom(STATE.lightsOn);
-    if (refs.doorPivot) refs.doorPivot.rotation.y = STATE.isMainDoorOpen ? -Math.PI/2 : 0;
+        // Apply physical state to scene
+        lightMgr.toggleBedroom(STATE.lightsOn);
+        if (refs.doorPivot) refs.doorPivot.rotation.y = STATE.isMainDoorOpen ? -Math.PI/2 : 0;
+        if (refs.bathPivot) refs.bathPivot.rotation.y = STATE.isBathroomDoorOpen ? Math.PI/2 : 0;
 
-    STATE.gamePhase = 'LAPTOP';
-    STATE.isLaptopOpen = true;
-    
-    camera.position.copy(CONSTANTS.LAPTOP_VIEW_POS);
-    camera.lookAt(CONSTANTS.LAPTOP_VIEW_LOOK);
-    
-    laptopInterface.style.display = 'block';
-    controls.unlock();
+        // Set up laptop view
+        STATE.gamePhase = 'LAPTOP';
+        STATE.isLaptopOpen = true;
+        
+        camera.position.copy(CONSTANTS.LAPTOP_VIEW_POS);
+        camera.lookAt(CONSTANTS.LAPTOP_VIEW_LOOK);
+        
+        laptopInterface.style.display = 'block';
+        controls.unlock();
 
-    soundMgr.playGlobal('ambience', true, 0.05);
+        soundMgr.playGlobal('ambience', true, 0.05);
+        
+        console.log("✅ GAME LOADED", data);
+        return true;
+    } catch (error) {
+        console.error("❌ Load failed - corrupted save data:", error);
+        // Clear corrupted save data
+        localStorage.removeItem('visitorSaveData');
+        alert("Save data was corrupted and has been reset. Please start a new game.");
+        return false;
+    }
+}
     if (refs.windowGroup) soundMgr.playPositional('rain', refs.windowGroup, true, 0.1, 10.0);
     if (refs.audioProxy) soundMgr.playPositional('night_ambience', refs.audioProxy, true, 0.3, 40.0);
 }
@@ -414,60 +461,99 @@ function onKeyUp(event) {
 document.addEventListener('keydown', onKeyDown);
 document.addEventListener('keyup', onKeyUp);
 
+/**
+ * Interaction handlers for each object type
+ * Using strategy pattern to eliminate nested conditions
+ */
+const interactionHandlers = {
+    'LAPTOP': () => {
+        STATE.gamePhase = 'TRANSITION_TO_LAPTOP';
+        STATE.isLaptopOpen = true;
+        savedStandPos.copy(camera.position);
+        savedStandQuat.copy(camera.quaternion);
+        cameraStartPos.copy(camera.position);
+        cameraStartQuat.copy(camera.quaternion);
+        transitionTime = 0;
+        controls.unlock();
+    },
+    'SWITCH': () => {
+        STATE.lightsOn = !STATE.lightsOn;
+        lightMgr.toggleBedroom(STATE.lightsOn);
+        soundMgr.playGlobal('switch');
+    },
+    'DOOR': () => {
+        STATE.isMainDoorOpen = !STATE.isMainDoorOpen;
+        refs.doorPivot.rotation.y = STATE.isMainDoorOpen ? -Math.PI / 2 : 0;
+        soundMgr.playPositional(STATE.isMainDoorOpen ? 'door_open' : 'door_close', refs.doorGroup, false, 2.0, 1.0);
+    },
+    'BATHROOM_DOOR': () => {
+        STATE.isBathroomDoorOpen = !STATE.isBathroomDoorOpen;
+        refs.bathPivot.rotation.y = STATE.isBathroomDoorOpen ? Math.PI / 2 : 0;
+        soundMgr.playPositional(STATE.isBathroomDoorOpen ? 'door_open' : 'door_close', refs.bathPivot, false, 2.0, 1.0);
+    },
+    'PHONE': () => {
+        if (STATE.phoneRinging) {
+            STATE.phoneRinging = false;
+            STATE.phoneAnswered = true;
+            soundMgr.stop('phone_ring');
+            soundMgr.playPositional('phone_pickup', refs.phoneCollider, false, 1.0, 1.0);
+            setTimeout(() => {
+                tutorialState = 'START_TUTORIAL';
+            }, 500);
+        }
+    }
+};
+
+/**
+ * Main interaction function - handles player interactions with objects in the world
+ * Uses raycasting to detect objects within interaction range (3.5 units)
+ */
 function interact() {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    
+    // Build list of interactive objects that exist in the scene
     const interactables = [];
     if (refs.switchCollider) interactables.push(refs.switchCollider);
     if (refs.doorCollider) interactables.push(refs.doorCollider);
     if (refs.bathCollider) interactables.push(refs.bathCollider);
-    if (refs.phoneCollider) interactables.push(refs.phoneCollider); 
-    if (refs.laptopCollider) interactables.push(refs.laptopCollider); 
+    if (refs.phoneCollider) interactables.push(refs.phoneCollider);
+    if (refs.laptopCollider) interactables.push(refs.laptopCollider);
     
+    // Check for intersections with interactive objects
     const intersects = raycaster.intersectObjects(interactables, true);
-    if (intersects.length > 0 && intersects[0].distance < 3.5) {
-        const type = intersects[0].object.userData.type;
-        
-        if (type === 'LAPTOP') {
-            STATE.gamePhase = 'TRANSITION_TO_LAPTOP';
-            STATE.isLaptopOpen = true;
-            savedStandPos.copy(camera.position);
-            savedStandQuat.copy(camera.quaternion);
-            cameraStartPos.copy(camera.position);
-            cameraStartQuat.copy(camera.quaternion);
-            transitionTime = 0;
-            controls.unlock(); 
-        } 
-        else if (type === 'SWITCH') {
-            lightMgr.toggleBedroom(STATE.lightsOn = !STATE.lightsOn);
-            soundMgr.playGlobal('switch');
-        } else if (type === 'DOOR') {
-            STATE.isMainDoorOpen = !STATE.isMainDoorOpen;
-            refs.doorPivot.rotation.y = STATE.isMainDoorOpen ? -Math.PI / 2 : 0;
-            soundMgr.playPositional(STATE.isMainDoorOpen ? 'door_open' : 'door_close', refs.doorGroup, false, 2.0, 1.0);
-        } else if (type === 'BATHROOM_DOOR') {
-            STATE.isBathroomDoorOpen = !STATE.isBathroomDoorOpen;
-            refs.bathPivot.rotation.y = STATE.isBathroomDoorOpen ? Math.PI / 2 : 0;
-            soundMgr.playPositional(STATE.isBathroomDoorOpen ? 'door_open' : 'door_close', refs.bathPivot, false, 2.0, 1.0);
-        } else if (type === 'PHONE') {
-            if (STATE.phoneRinging) {
-                STATE.phoneRinging = false;
-                STATE.phoneAnswered = true; 
-                soundMgr.stop('phone_ring'); 
-                soundMgr.playPositional('phone_pickup', refs.phoneCollider, false, 1.0, 1.0);
-                setTimeout(() => {
-                    tutorialState = 'START_TUTORIAL';
-                }, 500);
-            }
-        }
-    }
+    if (intersects.length === 0 || intersects[0].distance >= 3.5) return;
+    
+    // Execute the appropriate handler for the interacted object
+    const type = intersects[0].object.userData.type;
+    const handler = interactionHandlers[type];
+    if (handler) handler();
 }
 
+/**
+ * Interaction prompt messages - descriptive text for each interactive object
+ */
+const interactionPrompts = {
+    'SWITCH': () => `[E] ${STATE.lightsOn ? 'Turn Off' : 'Turn On'} Lights`,
+    'DOOR': () => `[E] ${STATE.isMainDoorOpen ? 'Close' : 'Open'} Door`,
+    'BATHROOM_DOOR': () => `[E] ${STATE.isBathroomDoorOpen ? 'Close' : 'Open'} Bathroom`,
+    'LAPTOP': () => '[E] Use Computer',
+    'PHONE': () => STATE.phoneRinging ? '[E] Answer Phone' : ''
+};
+
+/**
+ * Update UI elements - Shows contextual interaction prompts
+ * Dynamically updates based on object state (doors open/closed, lights on/off)
+ */
 function updateUI() {
     const ui = document.getElementById('interaction-prompt');
+    
+    // Hide UI during cutscenes and laptop mode
     if (STATE.gamePhase === 'CUTSCENE' || STATE.gamePhase === 'LAPTOP') {
         ui.style.opacity = 0;
         return;
     }
+    
+    // Raycast from center of screen to find interactive objects
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     const interactables = [];
     if (refs.laptopCollider) interactables.push(refs.laptopCollider);
@@ -479,35 +565,47 @@ function updateUI() {
     const intersects = raycaster.intersectObjects(interactables, true);
     if (intersects.length > 0 && intersects[0].distance < 3.5) {
         const type = intersects[0].object.userData.type;
-        if (type === 'SWITCH') ui.textContent = "[E] Switch";
-        else if (type === 'DOOR') ui.textContent = "[E] Door";
-        else if (type === 'BATHROOM_DOOR') ui.textContent = "[E] Bathroom";
-        else if (type === 'LAPTOP') ui.textContent = "[E] Use Computer";
-        else if (type === 'PHONE' && STATE.phoneRinging) ui.textContent = "[E] Answer Phone";
-        else ui.textContent = "";
+        const promptFn = interactionPrompts[type];
+        ui.textContent = promptFn ? promptFn() : "";
         ui.style.opacity = ui.textContent ? 1 : 0;
-    } else ui.style.opacity = 0;
+    } else {
+        ui.style.opacity = 0;
+    }
 }
 
+/**
+ * Check if player position collides with walls or other obstacles
+ * Optimized with early returns and spatial bounds checking
+ * @param {THREE.Vector3} pos - Player position to check
+ * @returns {boolean} - True if collision detected, false otherwise
+ */
 function checkCollisions(pos) {
-    for (const box of colliders) if (box.containsPoint(pos)) return true;
+    // Check solid colliders first (furniture, walls, etc.)
+    for (const box of colliders) {
+        if (box.containsPoint(pos)) return true;
+    }
+    
+    // Define room boundaries for quick spatial checks
     const inBedroom = (pos.z > -7.0 && pos.x > -7.0 && pos.x < 7.0 && pos.z < 7.0);
     const inHallway = (pos.z <= -7.0 && pos.z >= -27.5 && pos.x > -9.0 && pos.x < 1.4);
     const inBathroom = (pos.x <= -1.6 && pos.x > -9.0 && pos.z > -26.0 && pos.z < -19.0);
     const inLiving = (pos.z < -27.5 && pos.x > -9.5 && pos.x < 19.5 && pos.z > -44.5);
 
+    // Check main door collision (only when closed)
     if (!STATE.isMainDoorOpen) {
         if (pos.z > -8.0 && pos.z < -7.0 && Math.abs(pos.x) < 1.5) return true;
     }
-    if (pos.z < -19.5 && pos.z > -22.5 && pos.x < -1.4 && pos.x > -1.6) {
-        if (STATE.isBathroomDoorOpen) return false; 
-        else return true;  
+    
+    // Check bathroom door collision (only when closed)
+    if (!STATE.isBathroomDoorOpen) {
+        if (pos.z < -19.5 && pos.z > -22.5 && pos.x < -1.4 && pos.x > -1.6) return true;
     }
-    if (inBedroom) return false;
-    if (inHallway) return false;
-    if (inLiving) return false;
-    if (inBathroom) return false;
-    return true; 
+    
+    // Allow movement in valid rooms, block everywhere else
+    if (inBedroom || inHallway || inLiving || inBathroom) return false;
+    
+    return true; // Outside valid areas = collision
+}
 }
 
 function gameLoop(time) {

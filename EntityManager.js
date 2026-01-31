@@ -1,37 +1,56 @@
 import * as THREE from 'three';
 import { STATE } from './GameConfig.js';
 
+/**
+ * EntityManager - Manages supernatural entities and encounters
+ * Handles timing, spawning, despawning, and visual effects for horror entities
+ */
 export class EntityManager {
+    /**
+     * @param {THREE.Scene} scene - Main Three.js scene
+     * @param {Object} refs - References to scene objects (doors, closets, etc.)
+     * @param {SoundManager} soundMgr - Sound manager for 3D audio
+     * @param {LightingManager} lightMgr - Lighting manager for dynamic lights
+     */
     constructor(scene, refs, soundMgr, lightMgr) {
         this.scene = scene;
         this.refs = refs;
-        this.soundMgr = soundMgr; // Has reference to this.soundMgr.camera
-        this.lightMgr = lightMgr; 
+        this.soundMgr = soundMgr;
+        this.lightMgr = lightMgr;
 
         // TIMING CONFIGURATION
-        this.PHONE_DURATION = 157.0; 
-        this.GRACE_PERIOD = 10.0;    
-        this.COOLDOWN_DURATION = 15.0; 
+        this.PHONE_DURATION = 157.0;    // Tutorial duration (seconds)
+        this.GRACE_PERIOD = 10.0;       // Safe period after tutorial
+        this.COOLDOWN_DURATION = 15.0;  // Time between encounters
         
-        this.timers = { introTimer: 0, graceTimer: 0, cooldownTimer: 0, eventDelay: 0 };
+        this.timers = { 
+            introTimer: 0, 
+            graceTimer: 0, 
+            cooldownTimer: 0, 
+            eventDelay: 0 
+        };
         
-        this.status = 'WAITING_FOR_PHONE'; 
+        this.status = 'WAITING_FOR_PHONE';
         this.currentEntity = null;
         this.encounterStage = 0;
         
-        // --- ENTITY POOL ---
+        // Entity pool - randomly selected and removed when triggered
         this.entityPool = ['CLOSET', 'WINDOW', 'WHISPER'];
 
-        // State Flags
+        // State flags for encounter management
         this.slamSoundPlayed = false;
-        this.breathTriggered = false; 
+        this.breathTriggered = false;
 
-        // Visuals
+        // Create visual entities
         this.handMesh = this.createHandVisual();
         this.shadowMan = this.createShadowManVisual();
         this.whisperEyes = this.createWhisperEyesVisual();
     }
 
+    /**
+     * Create a hand visual that emerges from the closet
+     * @returns {THREE.Group} Hand mesh group
+     */
     createHandVisual() {
         const handGroup = new THREE.Group();
         const armGeo = new THREE.CylinderGeometry(0.04, 0.03, 0.5);
@@ -48,6 +67,11 @@ export class EntityManager {
         return handGroup;
     }
 
+    /**
+     * Create eerie red eyes that appear in dark corners
+     * Eyes track the player's camera position
+     * @returns {THREE.Group} Whisper eyes mesh group
+     */
     createWhisperEyesVisual() {
         const group = new THREE.Group();
         const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16);
@@ -78,6 +102,11 @@ export class EntityManager {
         return group;
     }
 
+    /**
+     * Create shadow humanoid figure that appears during window encounter
+     * Has animated head and arms for walking/running animation
+     * @returns {THREE.Group} Shadow man mesh group
+     */
     createShadowManVisual() {
         const group = new THREE.Group();
         
@@ -119,6 +148,46 @@ export class EntityManager {
         return group;
     }
 
+    /**
+     * Dynamically add a new entity type to the encounter pool
+     * Allows for runtime generation of new threats
+     * @param {string} entityType - Type identifier for the new entity
+     */
+    spawnEntity(entityType) {
+        if (!this.entityPool.includes(entityType)) {
+            this.entityPool.push(entityType);
+            console.log(`👻 New entity spawned: ${entityType}`);
+        }
+    }
+
+    /**
+     * Remove an entity from the pool without triggering it
+     * Useful for dynamically adjusting difficulty
+     * @param {string} entityType - Type identifier to remove
+     */
+    despawnEntity(entityType) {
+        const index = this.entityPool.indexOf(entityType);
+        if (index !== -1) {
+            this.entityPool.splice(index, 1);
+            console.log(`👻 Entity despawned: ${entityType}`);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Reset entity pool to default state
+     * Useful for testing or new game scenarios
+     */
+    resetEntityPool() {
+        this.entityPool = ['CLOSET', 'WINDOW', 'WHISPER'];
+        console.log("👻 Entity pool reset to defaults");
+    }
+
+    /**
+     * Skip the tutorial/intro sequence if player presses appropriate key
+     * Advances timer to skip the phone tutorial audio
+     */
     skipIntro() {
         if (this.status === 'INTRO_COOLDOWN') {
             console.log("⏩ Tutorial Skipped by User");
@@ -127,6 +196,11 @@ export class EntityManager {
         }
     }
 
+    /**
+     * Select and trigger a random encounter from the entity pool
+     * Removes selected entity from pool to avoid repetition
+     * When pool is empty, player has survived all encounters
+     */
     triggerRandomEncounter() {
         if (this.entityPool.length === 0) {
             console.log("🎉 Player Survived! No entities left in pool.");
@@ -141,15 +215,21 @@ export class EntityManager {
         this.triggerEncounter(type);
     }
 
+    /**
+     * Main update loop for entity system
+     * Manages encounter state machine and eye tracking
+     * @param {number} delta - Time elapsed since last frame (seconds)
+     */
     update(delta) {
-        // --- EYE TRACKING ---
-        // If the eyes are visible, make them stare at the player's camera
+        // Make whisper eyes follow player camera when visible
         if (this.whisperEyes && this.whisperEyes.visible) {
             this.whisperEyes.lookAt(this.soundMgr.camera.position);
         }
 
-        if (!STATE.phoneAnswered) return; 
+        // Wait until player answers phone to begin encounters
+        if (!STATE.phoneAnswered) return;
 
+        // State machine for encounter management
         if (this.status === 'WAITING_FOR_PHONE') this.status = 'INTRO_COOLDOWN';
 
         if (this.status === 'INTRO_COOLDOWN') {
@@ -175,12 +255,17 @@ export class EntityManager {
             }
         }
         else if (this.status === 'ENCOUNTER') {
+            // Delegate to specific encounter handlers
             if (this.currentEntity === 'CLOSET') this.updateClosetEncounter(delta);
             else if (this.currentEntity === 'WINDOW') this.updateWindowEncounter(delta);
             else if (this.currentEntity === 'WHISPER') this.updateWhisperEncounter(delta);
         }
     }
 
+    /**
+     * Begin a specific encounter type
+     * @param {string} type - Entity type to trigger (CLOSET, WINDOW, WHISPER)
+     */
     triggerEncounter(type) {
         this.status = 'ENCOUNTER';
         this.currentEntity = type;
@@ -189,7 +274,14 @@ export class EntityManager {
         console.log(`👻 Starting Encounter: ${type} (Remaining: ${this.entityPool})`);
     }
 
-    // --- WHISPER ENTITY (UPDATED) ---
+    /**
+     * Whisper Entity Encounter - Darkness with watching eyes
+     * Stage 0: Turn off lights, show eyes, play whisper sound
+     * Stage 1: Hide eyes after sound finishes
+     * Stage 2: Wait for player to turn lights on (or auto-restore after 5s)
+     * Stage 3: Complete encounter and enter cooldown
+     * @param {number} delta - Time since last frame
+     */
     updateWhisperEncounter(delta) {
         // 0: Start - Lights Off, Show Eyes, Play Sound
         if (this.encounterStage === 0) {
@@ -237,7 +329,11 @@ export class EntityManager {
         }
     }
 
-    // --- WINDOW ENTITY ---
+    /**
+     * Window Entity Encounter - Shadow figure at window followed by door intrusion
+     * Multi-stage horror sequence with voice, darkness, and running shadow man
+     * @param {number} delta - Time since last frame
+     */
     updateWindowEncounter(delta) {
         if (this.encounterStage === 0) {
             this.shadowMan.position.set(9.0, 0, 0); 
@@ -329,6 +425,11 @@ export class EntityManager {
         }
     }
 
+    /**
+     * Closet Entity Encounter - Hand reaching from closet with shaking door
+     * Creates tension with sounds and visual disturbances
+     * @param {number} delta - Time since last frame
+     */
     updateClosetEncounter(delta) {
         if (this.encounterStage === 0) {
             if (this.refs.closetGroup) {
