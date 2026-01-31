@@ -91,6 +91,12 @@ let tutorialState = 'NONE';
 let sequenceTimer = 0; 
 let playerBodyParts = null;
 
+// Dynamic atmosphere tracking
+let atmosphereTimer = 0;
+let lastPlayerPos = new THREE.Vector3();
+let stationaryTime = 0;
+let movementSoundTimer = 0;
+
 STATE.phoneRinging = false;
 STATE.phoneAnswered = false;
 
@@ -478,8 +484,14 @@ const interactionHandlers = {
     },
     'SWITCH': () => {
         STATE.lightsOn = !STATE.lightsOn;
-        lightMgr.toggleBedroom(STATE.lightsOn);
+        // Use flickering effect for more dramatic light transitions
+        lightMgr.toggleBedroom(STATE.lightsOn, true);
         soundMgr.playGlobal('switch');
+        
+        // Stop heartbeat when lights turn on
+        if (STATE.lightsOn && soundMgr.activeSounds['heartbeat']) {
+            soundMgr.fadeOut('heartbeat', 500);
+        }
     },
     'DOOR': () => {
         STATE.isMainDoorOpen = !STATE.isMainDoorOpen;
@@ -715,11 +727,67 @@ function gameLoop(time) {
         if (moveState.right) camera.position.addScaledVector(side, speed);
         if (checkCollisions(camera.position)) camera.position.copy(oldPos);
         camera.position.y = 4.0 + (moveState.forward || moveState.backward || moveState.left || moveState.right ? Math.sin(time * 0.01) * 0.05 : 0);
+        
+        // Dynamic atmosphere system - react to player actions
+        updateDynamicAtmosphere(delta, camera.position);
     }
     
     updateUI();
     renderer.render(scene, camera);
     requestAnimationFrame(gameLoop);
+}
+
+/**
+ * Update dynamic atmosphere based on player behavior
+ * Triggers ambient sounds and lighting changes for immersion
+ * @param {number} delta - Time since last frame
+ * @param {THREE.Vector3} currentPos - Current player position
+ */
+function updateDynamicAtmosphere(delta, currentPos) {
+    atmosphereTimer += delta;
+    
+    // Check if player is moving or stationary
+    const distanceMoved = currentPos.distanceTo(lastPlayerPos);
+    const isMoving = distanceMoved > 0.01;
+    
+    if (isMoving) {
+        stationaryTime = 0;
+        movementSoundTimer += delta;
+        
+        // Occasional floor creaks when walking in dark
+        if (!STATE.lightsOn && movementSoundTimer > 3.0 && Math.random() < 0.3) {
+            soundMgr.playWithPitchVariation('creak_floor', 0.2);
+            movementSoundTimer = 0;
+        }
+    } else {
+        stationaryTime += delta;
+        
+        // Heartbeat sound if player stands still in dark for too long
+        if (!STATE.lightsOn && stationaryTime > 15.0 && !soundMgr.activeSounds['heartbeat']) {
+            soundMgr.playGlobal('heartbeat', true, 0.3);
+        } else if (STATE.lightsOn && soundMgr.activeSounds['heartbeat']) {
+            soundMgr.stop('heartbeat');
+        }
+    }
+    
+    // Random atmospheric events
+    if (atmosphereTimer > 20.0 && STATE.phoneAnswered && Math.random() < 0.05) {
+        const eventRoll = Math.random();
+        
+        if (eventRoll < 0.3 && !STATE.lightsOn) {
+            // Brief static sound
+            soundMgr.playGlobal('static', false, 0.2);
+        } else if (eventRoll < 0.5) {
+            // Light flicker when lights are on
+            if (STATE.lightsOn && lightMgr) {
+                lightMgr.flickerLights(true);
+            }
+        }
+        
+        atmosphereTimer = 0;
+    }
+    
+    lastPlayerPos.copy(currentPos);
 }
 
 function initSlideshow() {

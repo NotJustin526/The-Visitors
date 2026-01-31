@@ -55,11 +55,27 @@ export class SoundManager {
             // --- ENTITY SOUNDS ---
             'closet_bang': 'assets/sounds/closet_bang.mp3',
             'closet_talk': 'assets/sounds/closet_talk.mp3',
+            'closet_noise': 'assets/sounds/closet_noise.mp3',
             
-            // --- NEW WINDOW ENTITY SOUNDS ---
+            // --- WINDOW ENTITY SOUNDS ---
             'window_tap': 'assets/sounds/window_tap.mp3',
             'blinds_open': 'assets/sounds/blinds_open.mp3',
-            'window_jumpscare': 'assets/sounds/window_jumpscare.mp3'
+            'window_jumpscare': 'assets/sounds/window_jumpscare.mp3',
+            'window_voice': 'assets/sounds/window_voice.mp3',
+            
+            // --- SHARED ENTITY SOUNDS ---
+            'whisper': 'assets/sounds/whisper.mp3',
+            'hello_voice': 'assets/sounds/hello_voice.mp3',
+            'door_creak': 'assets/sounds/door_creak.mp3',
+            'scared_breath': 'assets/sounds/scared_breath.mp3',
+            'run_footsteps': 'assets/sounds/run_footsteps.mp3',
+            'slam_scream': 'assets/sounds/slam_scream.mp3',
+            
+            // --- ADDITIONAL ATMOSPHERIC SOUNDS (NEW) ---
+            'heartbeat': 'assets/sounds/heartbeat.mp3',
+            'static': 'assets/sounds/static.mp3',
+            'distant_laugh': 'assets/sounds/distant_laugh.mp3',
+            'creak_floor': 'assets/sounds/creak_floor.mp3'
         };
 
         for (const [key, path] of Object.entries(files)) {
@@ -71,6 +87,9 @@ export class SoundManager {
                     else this.playGlobal(key, p.loop, p.volume, p.onEndCallback);
                     delete this.pending[key];
                 }
+            }, undefined, (error) => {
+                // Silently fail for missing audio files - allows game to run without all assets
+                console.warn(`Failed to load sound: ${key} (${path})`);
             });
         }
     }
@@ -125,6 +144,16 @@ export class SoundManager {
         return sound;
     }
 
+    /**
+     * Play positional 3D sound attached to an object
+     * @param {string} key - Sound identifier
+     * @param {THREE.Object3D} object - 3D object to attach sound to
+     * @param {boolean} loop - Loop the sound
+     * @param {number} volume - Base volume (0.0 to 1.0+)
+     * @param {number} refDist - Reference distance for 3D audio falloff
+     * @param {Function} onEndCallback - Callback when sound ends
+     * @returns {THREE.PositionalAudio} The created audio object
+     */
     playPositional(key, object, loop = false, volume = 1.0, refDist = 1.0, onEndCallback = null) {
         if (!this.buffers[key]) {
             this.pending[key] = { isPositional: true, object, loop, volume, refDist, onEndCallback };
@@ -155,5 +184,81 @@ export class SoundManager {
         sound.play();
         this.activeSounds[key] = sound;
         return sound;
+    }
+
+    /**
+     * Play a sound with a random pitch variation for variety
+     * Creates more organic and less repetitive soundscapes
+     * @param {string} key - Sound identifier
+     * @param {number} pitchVariation - Max pitch variation (default: 0.1)
+     */
+    playWithPitchVariation(key, pitchVariation = 0.1) {
+        const sound = this.playGlobal(key, false, 1.0);
+        if (sound) {
+            const randomPitch = 1.0 + (Math.random() - 0.5) * pitchVariation;
+            sound.setPlaybackRate(randomPitch);
+        }
+        return sound;
+    }
+
+    /**
+     * Play a random sound from a set for variety
+     * Useful for footsteps, breathing, ambient noises
+     * @param {string[]} soundKeys - Array of sound identifiers to choose from
+     */
+    playRandom(soundKeys) {
+        if (soundKeys.length === 0) return;
+        const randomKey = soundKeys[Math.floor(Math.random() * soundKeys.length)];
+        return this.playGlobal(randomKey);
+    }
+
+    /**
+     * Fade in a sound gradually
+     * @param {string} key - Sound identifier
+     * @param {number} duration - Fade duration in milliseconds
+     * @param {number} targetVolume - Target volume (0.0 to 1.0)
+     */
+    fadeIn(key, duration = 1000, targetVolume = 1.0) {
+        const sound = this.playGlobal(key, false, 0.0);
+        if (!sound) return;
+        
+        const startTime = Date.now();
+        const interval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+            
+            this.baseVolumes[key] = targetVolume * progress;
+            sound.setVolume(this.getEffectiveVolume(key));
+            
+            if (progress >= 1.0) {
+                clearInterval(interval);
+            }
+        }, 16);
+    }
+
+    /**
+     * Fade out and stop a sound gradually
+     * @param {string} key - Sound identifier
+     * @param {number} duration - Fade duration in milliseconds
+     */
+    fadeOut(key, duration = 1000) {
+        const sound = this.activeSounds[key];
+        if (!sound || !sound.isPlaying) return;
+        
+        const startVolume = this.baseVolumes[key] || 1.0;
+        const startTime = Date.now();
+        
+        const interval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+            
+            this.baseVolumes[key] = startVolume * (1.0 - progress);
+            sound.setVolume(this.getEffectiveVolume(key));
+            
+            if (progress >= 1.0) {
+                clearInterval(interval);
+                this.stop(key);
+            }
+        }, 16);
     }
 }
